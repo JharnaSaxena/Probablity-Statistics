@@ -1,0 +1,126 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+G20=['ARG','AUS','BRA','CAN','CHN','FRA','DEU','IND','IDN','ITA','JPN','MEX','RUS','SAU','ZAF','KOR','TUR','GBR','USA']
+PILLAR_INFO={'IN.1':'Institutions','IN.2':'Human capital and research','IN.3':'Infrastructure','IN.4':'Market sophistication','IN.5':'Business sophistication'}
+OVERALL_CODE=''
+OVERALL_NAME='Global Innovation Index'
+data_df=pd.read_csv("Book1.csv", encoding='latin1')
+pillar_data=data_df[(data_df['Pillars'].isin(PILLAR_INFO.keys()))|(data_df['Pillars']==OVERALL_CODE)][['ISO3','Pillars','Score']].copy()
+pillar_data['Score']=pd.to_numeric(pillar_data['Score'], errors='coerce')
+pillar_data=pillar_data.dropna()
+scores_wide=pillar_data.pivot(index='ISO3', columns='Pillars', values='Score')
+scores_wide=scores_wide.rename(columns=PILLAR_INFO)
+scores_wide=scores_wide.rename(columns={OVERALL_CODE: OVERALL_NAME})
+india_row=scores_wide[scores_wide.index=='IND']
+if india_row.empty:
+    raise ValueError("India (IND) not found in data!")
+india=india_row.iloc[0]
+g20=scores_wide[scores_wide.index.isin(G20)].copy()
+print(f"India GII Data Loaded | G20 economies: {len(g20)}")
+pillars = list(PILLAR_INFO.values())
+print("\nG20 DATA USED FOR ANALYSIS\n")
+print(g20)
+g20.to_csv("G20_cleaned_dataset.csv")
+#+++++DESC STATS+++++++++++
+desc=g20[pillars].describe().T
+desc['range']=g20[pillars].max()-g20[pillars].min()
+desc=desc[['mean','std','50%','range']].round(2)
+desc.columns=['Mean','Std Dev','Median','Range']
+print("\nG20 Descriptive Statistics")
+print(desc)
+#++++++++++GAP+++++++++++++++
+g20_means=g20[pillars].mean()
+gaps={p:g20_means[p]-india[p] for p in pillars}
+#++++++++++++BOXPLOT+++++++++++
+plt.figure(figsize=(12,7))
+bp=g20[pillars].boxplot(patch_artist=True,boxprops=dict(facecolor='#A3BEF0',color='black',linewidth=1.5),medianprops=dict(color='#D32F2F', linewidth=3),whiskerprops=dict(color='black'),capprops=dict(color='black'),flierprops=dict(marker='D', markersize=6, markerfacecolor='gray', alpha=0.6))
+for i, p in enumerate(pillars):
+    plt.scatter(i + 1, india[p],color='#B71C1C',s=300,marker='p',edgecolors='black',linewidth=1,zorder=10,
+                label='India' if i == 0 else None)
+plt.title('India vs G20: Innovation Input Pillars (GII 2025)', fontsize=18, fontweight='bold')
+plt.ylabel('Score (0–100)', fontsize=14)
+plt.xlabel('Innovation Pillars', fontsize=14)
+plt.xticks(range(1, len(pillars)+1), pillars, ha='left', fontsize=10)
+plt.grid(axis='y', alpha=0.3, linestyle='--')
+plt.legend(fontsize=12)
+plt.show()
+#+++++++++++++++HISTOGRAM+++++++
+fig,axes=plt.subplots(2,3,figsize=(16,10))
+axes=axes.ravel()
+colors=['#90CAF9','#80DEEA','#80CBC4','#A5D6A7','#C5E1A5']
+for i, p in enumerate(pillars):
+    ax=axes[i]
+    ax.hist(g20[p],bins=10,color=colors[i],edgecolor='black',alpha=0.8,linewidth=1.2)
+    ax.axvline(india[p],color='#B71C1C',linewidth=4,label=f'India: {india[p]:.1f}')
+    ax.axvline(g20[p].mean(),color='navy',linestyle='-',linewidth=2,label=f'G20 Avg: {g20[p].mean():.1f}')
+    ax.set_title(p,fontsize=14,fontweight='bold',pad=10)
+    ax.legend(fontsize=10)
+    ax.grid(alpha=0.3)
+axes[5].axis('off')
+plt.suptitle('Distribution of GII 2025 Pillar Scores Across G20 Economies',fontsize=18,fontweight='bold',y=0.98)
+plt.tight_layout(rect=[0, 0, 1, 0.95])
+plt.show()
+#+++++++Z-SCORES++++++++++++++
+z_scores = {}
+for p in pillars:
+    mean_val = g20[p].mean()
+    std_val = g20[p].std(ddof=0)
+    z = (india[p] - mean_val) / std_val if std_val > 0 else 0
+    z_scores[p] = round(z, 3)
+summary = pd.DataFrame({'Pillar': pillars,'India Score': [round(india[p], 2) for p in pillars],'G20 Average': [round(g20_means[p], 2) for p in pillars],'Gap': [round(gaps[p], 2) for p in pillars], 'Z-score': [z_scores[p] for p in pillars]})
+print("INDIA'S INNOVATION  vs G20 (2025) GAP & Z-SCORE")
+print(summary.to_string(index=False))
+df = pd.read_csv("Book1.csv", encoding='latin1')
+key_pillars = ["Institutions","Human capital and research","Infrastructure","Market sophistication","Business sophistication"]
+print("\n CORRELATION BETWEEN SCORE AND RANK PER PILLAR \n")
+results = []
+for pillar in key_pillars:
+    sub=df[df["Pillar Name"]==pillar]
+    inverted_rank=sub["Rank"].max()-sub["Rank"]+1
+        x = sub["Score"] 
+    y = inverted_rank  
+        n = len(sub)
+    mean_x = x.mean()
+    mean_y = y.mean()
+    
+    numerator = ((x - mean_x) * (y - mean_y)).sum()
+    denominator = np.sqrt(((x - mean_x)**2).sum() * ((y - mean_y)**2).sum())
+    
+    pearson_corr = numerator / denominator if denominator != 0 else float('nan')
+    
+    results.append({"Pillar": pillar, "Pearson Correlation": pearson_corr})
+    print(f"{pillar:<30}: {pearson_corr: .3f}")
+results_df = pd.DataFrame(results)
+plt.figure(figsize=(7, 4.5))
+bars = plt.barh(results_df["Pillar"], results_df["Pearson Correlation"], 
+                color="#4CAF50", edgecolor="black", height=0.45)
+plt.title("Pearson Correlation between Pillar Score and Rank", 
+          fontsize=13, fontweight='bold', color="#004d00")
+plt.xlabel("Pearson Correlation", fontsize=10)
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+df = pd.read_csv("Book1.csv", encoding='latin1')
+df = df[['ISO3', 'Pillar Name', 'Score']]
+rename_map = {
+    "Institutions": "INS",
+    "Human capital and research": "HCR",
+    "Infrastructure": "INF",
+    "Market sophistication": "MKT",
+    "Business sophistication": "BUS",
+    "Knowledge and technology outputs": "TECH",
+    "Creative outputs": "CRT"
+}
+wide = df.pivot_table(index='ISO3', columns='Pillar Name', values='Score')
+wide = wide.rename(columns=rename_map)
+wide = wide.dropna()
+corr = wide.corr()
+plt.figure(figsize=(10, 6))
+sns.heatmap(corr, annot=True, cmap="coolwarm", linewidths=0.5)
+plt.title("Correlation Between Innovation Pillars", fontsize=16, fontweight='bold')
+plt.tight_layout()
+plt.show()
+
+
